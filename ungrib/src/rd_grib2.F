@@ -415,6 +415,48 @@ C  SET ARGUMENTS
 !               write(6,*) 'Resetting map%dy for iprocess = ',iprocess
 !             endif
 
+           elseif (gfld%igdtnum.eq.1) then ! Rotated Lat-Lon Grid.
+              map%igrid = 6
+              map%nx = gfld%igdtmpl(8)
+              map%ny = gfld%igdtmpl(9)
+              map%dx = gfld%igdtmpl(17)
+              map%dy = gfld%igdtmpl(18)
+              ! For Rotated Lat-Lon Grid, the latitude of the southern pole (map%lat0)
+              ! is stored as an offset from -90 degrees in the GRIB2 template.
+              ! We add 90 degrees (in microdegrees) to gfld%igdtmpl(20) to obtain the correct latitude.
+              ! This transformation is specific to this grid type and differs from other grid types.
+              map%lat0 = 90000000.0 + gfld%igdtmpl(20)
+              map%lon0 = gfld%igdtmpl(21)
+              map%lat1 = map%lat0 + gfld%igdtmpl(12)
+              map%lon1 = map%lon0 + gfld%igdtmpl(13) - 360000000.0
+              write(tmp8,'(b8.8)') gfld%igdtmpl(14)
+              if (tmp8(5:5) .eq. '0') map%grid_wind = .false.
+              map%r_earth = earth_radius (gfld%igdtmpl(1),
+     &                         gfld%igdtmpl(2),gfld%igdtmpl(3))
+              if ((gfld%igdtmpl(10) .eq. 0).OR.
+     &            (gfld%igdtmpl(10) .eq. 255)) THEN
+                map%lat1 = map%lat1/scale_factor
+                map%lon1 = map%lon1/scale_factor
+                map%lat0 = map%lat0/scale_factor
+                map%lon0 = map%lon0/scale_factor
+                map%dx = map%dx/scale_factor
+                map%dy = map%dy/scale_factor
+              else
+          ! Basic angle and subdivisions are non-zero (not tested)
+                map%lat1 = map%lat1 *
+     &                     (gfld%igdtmpl(11)/gfld%igdtmpl(10))
+                map%lon1 = map%lon1 *
+     &                     (gfld%igdtmpl(11)/gfld%igdtmpl(10))
+                map%dx = map%dx *
+     &                     (gfld%igdtmpl(11)/gfld%igdtmpl(10))
+                map%dy = map%dy *
+     &                     (gfld%igdtmpl(11)/gfld%igdtmpl(10))
+               call mprintf(.true.,STDOUT,"WARNING - Basic angle option 
+     &has not been tested, continuing anyway")
+               call mprintf(.true.,LOGFILE,"WARNING - Basic angle option 
+     & has not been tested, continuing anyway")
+              endif
+
            elseif (gfld%igdtnum.eq.10) then ! Mercator Grid.
               map%igrid = 1
               map%nx = gfld%igdtmpl(8)
