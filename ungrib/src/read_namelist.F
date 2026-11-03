@@ -1,5 +1,5 @@
 subroutine read_namelist(hstart, hend, delta_time, ntimes,&
-     ordered_by_date, debug_level, out_format, prefix,    &
+     ordered_by_date, rh_wrt_water, debug_level, out_format, prefix,    &
      add_lvls, new_plvl_in, interp_type, ec_rec_len, pmin)
 
   use misc_definitions_module
@@ -50,6 +50,7 @@ subroutine read_namelist(hstart, hend, delta_time, ntimes,&
   character(len=3) :: out_format
   character(len=MAX_FILENAME_LEN) :: prefix
   logical :: nocolons
+  logical :: rh_wrt_water
 
   real :: target_end, incr
   integer :: il
@@ -66,7 +67,7 @@ subroutine read_namelist(hstart, hend, delta_time, ntimes,&
        io_form_geogrid, opt_output_from_geogrid_path, &
        debug_level, active_grid, &
        subgrid_ratio_x, subgrid_ratio_y, &
-       nocolons
+       nocolons, rh_wrt_water
 
   namelist /ungrib/ out_format, &
        ordered_by_date, prefix, &
@@ -94,6 +95,7 @@ subroutine read_namelist(hstart, hend, delta_time, ntimes,&
   wrf_core = 'ARW'
   debug_level = 0
   nocolons = .false.
+  rh_wrt_water = .false.
 
   add_lvls = .false.
   new_plvl = -99999.
