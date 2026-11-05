@@ -51,6 +51,7 @@
       integer :: listsec0(3)
       integer :: listsec1(13)
       integer year, month, day, hour, minute, second, fcst
+      integer :: time_unit, forecast_time
       character(len=*)  :: gribflnm
       character(len=*)  :: hdate
       character(len=8)  :: pabbrev
@@ -77,6 +78,7 @@
       real :: glevel1, glevel2
       logical :: first = .true.
       real :: pmin
+      logical :: field_matches
 
 C - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 C  SET ARGUMENTS
@@ -196,19 +198,25 @@ C  SET ARGUMENTS
 ! a time.
 
            if ( gfld%ipdtnum .ne. 8 ) then
-	     if ( gfld%ipdtmpl(8) .eq. 1 ) then       ! time units are hours
-	       fcst = gfld%ipdtmpl(9)
-	     else if ( gfld%ipdtmpl(8) .eq. 0 ) then  ! minutes
-	       fcst = gfld%ipdtmpl(9) / 60.
-	     else if ( gfld%ipdtmpl(8) .eq. 2 ) then  ! days
-	       fcst = gfld%ipdtmpl(9) * 24.
-	     else if ( gfld%ipdtmpl(19) .eq. 1 ) then 
-	       fcst = real(gfld%ipdtmpl(20))
-	     else
+             if ( gfld%ipdtnum .eq. 48 ) then
+               time_unit = gfld%ipdtmpl(19)
+               forecast_time = gfld%ipdtmpl(20)
+             else
+               time_unit = gfld%ipdtmpl(8)
+               forecast_time = gfld%ipdtmpl(9)
+             endif
+
+             if ( time_unit .eq. 1 ) then       ! time units are hours
+               fcst = forecast_time
+             else if ( time_unit .eq. 0 ) then  ! minutes
+               fcst = forecast_time / 60.
+             else if ( time_unit .eq. 2 ) then  ! days
+               fcst = forecast_time * 24.
+             else
                call mprintf(.true.,ERROR,
      &           "Time unit in ipdtmpl(8), %i is not suported",
      &            newline=.true.,i1=gfld%ipdtmpl(8))
-	     endif
+             endif
 	   else
 !  pdt 4.8 data are time-averaged, accumulated, or min/max fields with the 
 !  ending (valid) time provided. 
@@ -721,7 +729,21 @@ C  SET ARGUMENTS
          MATCH_LOOP: do i=1,maxvar ! Max variables found in Vtable,
                                    ! maxvar is defined in table.mod
 
-           if (( gfld%discipline .eq. g2code(1,i) .and.   !Discipline 
+           field_matches = .false.
+           if ( gfld%ipdtnum .eq. 48 ) then
+             if ( gfld%ipdtmpl(1) .eq. 13 ) then
+               field_matches =
+     &          (gfld%discipline .eq. g2code(1,i) .and.
+     &          gfld%ipdtmpl(1) .eq. g2code(2,i) .and.
+     &          gfld%ipdtmpl(2) .eq. g2code(3,i) .and.
+     &          gfld%ipdtmpl(21) .eq. g2code(4,i) .and.
+     &          gfld%ipdtnum    .eq. g2code(5,i) .and.
+     &          gfld%ipdtmpl(3) .eq. g2code(6,i) .and.
+     &          gfld%ipdtmpl(8) .eq. g2code(7,i))
+              endif
+            else
+              field_matches =
+     &       (( gfld%discipline .eq. g2code(1,i) .and.   !Discipline 
      &          gfld%ipdtmpl(1) .eq. g2code(2,i) .and.   !Category
      &          gfld%ipdtmpl(2) .eq. g2code(3,i) .and.   !Parameter
      &          gfld%ipdtmpl(10) .eq. g2code(4,i) .and.  !Elevation
@@ -732,16 +754,10 @@ C  SET ARGUMENTS
      &          gfld%ipdtmpl(21) .eq. g2code(4,i) .and.
      &          gfld%ipdtnum    .eq. g2code(5,i) .and.
      &          gfld%ipdtmpl(3) .eq. g2code(6,i) .and.
-     &          gfld%ipdtmpl(4) .eq. g2code(7,i)) .or.   !Template
-                ! only for PDT=48 and category=13
-     &          (gfld%discipline .eq. g2code(1,i) .and.
-     &          gfld%ipdtmpl(1) .eq. g2code(2,i) .and.
-     &          gfld%ipdtmpl(2) .eq. g2code(3,i) .and.
-     &          gfld%ipdtmpl(21) .eq. g2code(4,i) .and.
-     &          gfld%ipdtnum    .eq. g2code(5,i) .and.
-     &          gfld%ipdtmpl(3) .eq. g2code(6,i) .and.
-     &          gfld%ipdtmpl(8) .eq. g2code(7,i) .and.
-     &          g2code(2,i) .eq. 13)) then
+     &          gfld%ipdtmpl(4) .eq. g2code(7,i)))       !Template
+            endif
+
+            if (field_matches) then
 
             call gf_free(gfld)
             call gf_getfld(cgrib,lengrib,n,.TRUE.,expand,gfld,ierr)
