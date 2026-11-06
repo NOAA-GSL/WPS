@@ -1,6 +1,6 @@
 subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, &
                 add_lvls, new_plvl, interp_type, &
-                debug_level, out_format, prefix)
+                debug_level, rh_wrt_water, out_format, prefix)
 !                                                                             !
 ! In case you are wondering, RRPR stands for "Read, ReProcess, and wRite"     !
 !                                                                             !
@@ -54,6 +54,9 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, &
 
 ! DEBUG_LEVEL:  Integer level of debug printing (from namelist)
   integer :: debug_level
+
+! RH_WRT_WATER: Flag indicating whether RH is entirely wrt water
+  integer :: rh_wrt_water
 
 !------------------------------------------------------------------------------
 
@@ -586,6 +589,10 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, &
             endif
         endif
 
+        if (rh_wrt_water) then
+          call mprintf(.true.,DEBUG, &
+             "RRPR: NOT adjusting RH values ")
+        else
 ! Repair GFS and ECMWF pressure-level RH
         if (index(map%source,'NCEP GFS') .ne. 0 .or.  &
             index(map%source,'NCEP GEFS') .ne. 0 .or. &
@@ -599,6 +606,7 @@ subroutine rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, &
               call fix_gfs_rh (map%nx, map%ny, plvl(k))
             endif
           enddo
+        endif
         endif
 
 ! If upper-air RH is missing, see if we can compute RH from Specific Humidity:
