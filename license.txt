@@ -1,0 +1,2 @@
+This repository is a fork of https://github.com/WRF-model/wps.
+It follows the license information provided by WRF-mode/wps.
