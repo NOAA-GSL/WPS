@@ -1,5 +1,5 @@
 subroutine read_namelist(hstart, hend, delta_time, ntimes,&
-     ordered_by_date, debug_level, out_format, prefix,    &
+     ordered_by_date, rh_wrt_water, debug_level, out_format, prefix,    &
      add_lvls, new_plvl_in, interp_type, ec_rec_len, pmin)
 
   use misc_definitions_module
@@ -50,6 +50,7 @@ subroutine read_namelist(hstart, hend, delta_time, ntimes,&
   character(len=3) :: out_format
   character(len=MAX_FILENAME_LEN) :: prefix
   logical :: nocolons
+  logical :: rh_wrt_water
 
   real :: target_end, incr
   integer :: il
@@ -69,7 +70,7 @@ subroutine read_namelist(hstart, hend, delta_time, ntimes,&
        nocolons
 
   namelist /ungrib/ out_format, &
-       ordered_by_date, prefix, &
+       ordered_by_date, prefix, rh_wrt_water, &
        add_lvls, new_plvl, interp_type, ec_rec_len, pmin
 
   allocate(new_plvl(size(new_plvl_in)))
@@ -94,6 +95,7 @@ subroutine read_namelist(hstart, hend, delta_time, ntimes,&
   wrf_core = 'ARW'
   debug_level = 0
   nocolons = .false.
+  rh_wrt_water = .false.
 
   add_lvls = .false.
   new_plvl = -99999.

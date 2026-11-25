@@ -56,7 +56,7 @@ program ungrib
 
   interface
    subroutine read_namelist(hstart, hend, delta_time, ntimes,&
-    ordered_by_date, debug_level, out_format, prefix,    &
+    ordered_by_date, rh_wrt_water, debug_level, out_format, prefix,    &
     add_lvls, new_plvl, interp_type, ec_rec_len, pmin)
   
     use misc_definitions_module
@@ -66,6 +66,7 @@ program ungrib
     integer :: ntimes
     logical :: ordered_by_date
     integer :: debug_level
+    logical :: rh_wrt_water
     character(len=3) :: out_format
     character(len=MAX_FILENAME_LEN) :: prefix
     logical :: add_lvls
@@ -107,6 +108,7 @@ program ungrib
   integer :: interval
   integer :: ierr
   logical :: ordered_by_date
+  logical :: rh_wrt_water
   integer :: grib_version
   integer :: vtable_columns
 
@@ -117,7 +119,7 @@ program ungrib
 ! Read the namelist, and return the information we want:
 
   call read_namelist(hstart, hend, interval, ntimes, &
-       ordered_by_date, debug_level, out_format, prefix, &
+       ordered_by_date, rh_wrt_water, debug_level, out_format, prefix, &
        add_lvls, new_plvl, interp_type, ec_rec_len, pmin)
 
   call mprintf(.true.,INFORM,"Interval value: %i seconds or  %f hours", &
@@ -376,7 +378,7 @@ program ungrib
 
   call rrpr(hstart, ntimes, interval, nlvl, maxlvl, plvl, &
             add_lvls, new_plvl, interp_type, &
-            debug_level, out_format, prefix)
+            debug_level, rh_wrt_water, out_format, prefix)
 
 ! Make sure the filedates are in order, with an inefficient sort:
 
