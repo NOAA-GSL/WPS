@@ -373,7 +373,8 @@ subroutine parse_table(debug_level,vtable_columns)
            elseif (i.eq.12) then
            ! The twelfth field is the Grib2 Product Definition Template number
            ! Defaults to template 4.0, an instantaneous horizontal field.
-           ! The only other supported value is 8 - an accumulated or averaged field.
+           ! Use 8 for accumulated or averaged fields, and 48 for
+           ! aerosol fields that specify aerosol type and size below.
 
             if (istart .lt. ibar) then
               if (string(istart:ibar) == ' ') then

@@ -79,6 +79,7 @@
       logical :: first = .true.
       real :: pmin
       logical :: field_matches
+      integer :: surface_index, aerosol_size_index
 
 C - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 C  SET ARGUMENTS
@@ -717,11 +718,23 @@ C  SET ARGUMENTS
 !MGD          write(6,*) 'looking for ',gfld%discipline,gfld%ipdtmpl(1),
 !MGD     &       gfld%ipdtmpl(2),gfld%ipdtmpl(10)
 !MGD          endif
+           ! Template 4.48 puts the first fixed surface after the
+           ! aerosol metadata; other templates use the standard slots.
+           surface_index = 10
+           if (gfld%ipdtnum .eq. 48) surface_index = 21
+           if (gfld%ipdtlen .lt. surface_index + 2) then
+             call mprintf(.true.,INFORM,
+     &          "Skipping GRIB2 template 4.%i with only %i entries",
+     &          i1=gfld%ipdtnum, i2=gfld%ipdtlen)
+             call gf_free(gfld)
+             cycle NUM_FIELDS
+           endif
+
            call mprintf(.true.,DEBUG,"G2 Searching the g2code array (Vta
      &ble) for this grib field %i %i %i %i %i %i ", newline=.true.,
      & i1 = gfld%discipline, i2 = gfld%ipdtmpl(1),
-     & i3 = gfld%ipdtmpl(2), i4 = gfld%ipdtmpl(10),
-     & i5 = gfld%ipdtmpl(12), i6 = gfld%ipdtnum )
+     & i3 = gfld%ipdtmpl(2), i4 = gfld%ipdtmpl(surface_index),
+     & i5 = gfld%ipdtmpl(surface_index+2), i6 = gfld%ipdtnum )
 
          ! Test this data record against list of desired variables 
          ! found in Vtable.
@@ -729,33 +742,19 @@ C  SET ARGUMENTS
          MATCH_LOOP: do i=1,maxvar ! Max variables found in Vtable,
                                    ! maxvar is defined in table.mod
 
-           field_matches = .false.
-           if ( gfld%ipdtnum .eq. 48 ) then
-             if ( gfld%ipdtmpl(1) .eq. 13 ) then
-               field_matches =
-     &          (gfld%discipline .eq. g2code(1,i) .and.
+           field_matches = gfld%discipline .eq. g2code(1,i) .and.
      &          gfld%ipdtmpl(1) .eq. g2code(2,i) .and.
      &          gfld%ipdtmpl(2) .eq. g2code(3,i) .and.
-     &          gfld%ipdtmpl(21) .eq. g2code(4,i) .and.
-     &          gfld%ipdtnum    .eq. g2code(5,i) .and.
+     &          gfld%ipdtmpl(surface_index) .eq. g2code(4,i) .and.
+     &          gfld%ipdtnum    .eq. g2code(5,i)
+           if (gfld%ipdtnum .eq. 48) then
+             ! Vtables use a different size selector for category 13.
+             aerosol_size_index = 4
+             if (gfld%ipdtmpl(1) .eq. 13) aerosol_size_index = 8
+             field_matches = field_matches .and.
      &          gfld%ipdtmpl(3) .eq. g2code(6,i) .and.
-     &          gfld%ipdtmpl(8) .eq. g2code(7,i))
-              endif
-            else
-              field_matches =
-     &       (( gfld%discipline .eq. g2code(1,i) .and.   !Discipline 
-     &          gfld%ipdtmpl(1) .eq. g2code(2,i) .and.   !Category
-     &          gfld%ipdtmpl(2) .eq. g2code(3,i) .and.   !Parameter
-     &          gfld%ipdtmpl(10) .eq. g2code(4,i) .and.  !Elevation
-     &          gfld%ipdtnum    .eq. g2code(5,i)) .or.
-     &          (gfld%discipline .eq. g2code(1,i) .and.
-     &          gfld%ipdtmpl(1) .eq. g2code(2,i) .and.
-     &          gfld%ipdtmpl(2) .eq. g2code(3,i) .and.
-     &          gfld%ipdtmpl(21) .eq. g2code(4,i) .and.
-     &          gfld%ipdtnum    .eq. g2code(5,i) .and.
-     &          gfld%ipdtmpl(3) .eq. g2code(6,i) .and.
-     &          gfld%ipdtmpl(4) .eq. g2code(7,i)))       !Template
-            endif
+     &          gfld%ipdtmpl(aerosol_size_index) .eq. g2code(7,i)
+           endif
 
             if (field_matches) then
 
@@ -791,7 +790,8 @@ C  SET ARGUMENTS
 ! vary depending on the level code (e.g. 106 = cm, 103 = m).
 ! The grib2 standard allows scaling of the units, so make sure the soil level
 ! units are in cm (as used in the Vtable).
-              if ( gfld%ipdtmpl(10) .eq. 106 ) then
+              if (surface_index .eq. 10 .and.
+     &            gfld%ipdtmpl(surface_index) .eq. 106) then
                 if ( ( gfld%ipdtmpl(14) .EQ. -1*(2**07-1) ) .AND.
 !    &               ( gfld%ipdtmpl(15) .EQ. -1*(2**31-1) ) ) THEN ! Some compilers cannot
                                                                    ! handle the initial 2**31
@@ -828,49 +828,47 @@ C  SET ARGUMENTS
               endif
 
               ! Level (eg. 10000 mb)
-              if(gfld%ipdtmpl(10).eq.100) then
+              if(gfld%ipdtmpl(surface_index).eq.100) then
                  ! Pressure level (range from 1000mb to 0mb)
-                 level=gfld%ipdtmpl(12) *
-     &                           (10. ** (-1. * gfld%ipdtmpl(11)))
+                 level=gfld%ipdtmpl(surface_index+2) *
+     &                  (10. ** (-1. * gfld%ipdtmpl(surface_index+1)))
 		 if ( level .lt. pmin ) cycle MATCH_LOOP
-              elseif((gfld%ipdtmpl(10).eq.105).or.
-     &               (gfld%ipdtmpl(10).eq.118).or.
-     &               (gfld%ipdtmpl(10).eq.150))then
+              elseif((gfld%ipdtmpl(surface_index).eq.105).or.
+     &               (gfld%ipdtmpl(surface_index).eq.118).or.
+     &               (gfld%ipdtmpl(surface_index).eq.150))then
                  ! Hybrid level (range from 1 to N)
-                 level=gfld%ipdtmpl(12)
-              elseif((gfld%ipdtmpl(21).eq.105))then
-                 level=gfld%ipdtmpl(23)
-              elseif(gfld%ipdtmpl(10).eq.104) then
+                 level=gfld%ipdtmpl(surface_index+2)
+              elseif(gfld%ipdtmpl(surface_index).eq.104) then
                  ! Sigma level (range from 10000 to 0)
-                 level=gfld%ipdtmpl(12)
-              elseif(gfld%ipdtmpl(10).eq.101) then
+                 level=gfld%ipdtmpl(surface_index+2)
+              elseif(gfld%ipdtmpl(surface_index).eq.101) then
                  ! MSL
                  level=201300.
-              elseif(gfld%ipdtmpl(10).eq.103) then
-	         ! Height above ground (m)
-		 if (gfld%ipdtmpl(12) .eq. 2. .or. 
-     &               gfld%ipdtmpl(12) .eq. 1000. .or.     ! temp fix for hrrr maxref
-     &               gfld%ipdtmpl(12) .eq. 10. ) then
+              elseif(gfld%ipdtmpl(surface_index).eq.103) then
+	         ! Height above ground (m); 1000 is for HRRR maxref.
+		 if (gfld%ipdtmpl(surface_index+2) .eq. 2 .or.
+     &               gfld%ipdtmpl(surface_index+2) .eq. 1000 .or.
+     &               gfld%ipdtmpl(surface_index+2) .eq. 10) then
                    level=200100.
 		 else
                    cycle MATCH_LOOP
 		 endif
-              elseif((gfld%ipdtmpl(10).ge.206 .and.
-     &               gfld%ipdtmpl(10).le.234) .or.
-     &              (gfld%ipdtmpl(10).ge.242 .and.     
-     &               gfld%ipdtmpl(10).le.254) .or.
-     &              (gfld%ipdtmpl(10).eq.200) .or.
-     &              (gfld%ipdtmpl(10).eq.10) ) then
+              elseif((gfld%ipdtmpl(surface_index).ge.206 .and.
+     &               gfld%ipdtmpl(surface_index).le.234) .or.
+     &              (gfld%ipdtmpl(surface_index).ge.242 .and.
+     &               gfld%ipdtmpl(surface_index).le.254) .or.
+     &              (gfld%ipdtmpl(surface_index).eq.200) .or.
+     &              (gfld%ipdtmpl(surface_index).eq.10) ) then
                  ! NCEP cloud layers used for plotting
                    level=200100.
-              elseif(gfld%ipdtmpl(10).eq.106.or.
-     &               gfld%ipdtmpl(10).eq.1) then
+              elseif(gfld%ipdtmpl(surface_index).eq.106.or.
+     &               gfld%ipdtmpl(surface_index).eq.1) then
                  ! Misc near ground/surface levels
                  level=200100.
-              elseif(gfld%ipdtmpl(10).eq.6) then
+              elseif(gfld%ipdtmpl(surface_index).eq.6) then
                  ! Level of Max wind
                  level=200100.  
-              elseif(gfld%ipdtmpl(10).eq.7) then
+              elseif(gfld%ipdtmpl(surface_index).eq.7) then
                  ! Tropopause
                  level=200100.
               else
@@ -878,7 +876,8 @@ C  SET ARGUMENTS
                  ! which we cannot handle. Write an info message and skip it.
                  call mprintf(.true.,INFORM,"Rd_grib2 does not know abou
      &t level code %i (field = %s). Skipping this field. If you want thi
-     &s level, rd_grib2.F must be modified", i1 = gfld%ipdtmpl(10),
+     &s level, rd_grib2.F must be modified",
+     & i1 = gfld%ipdtmpl(surface_index),
      & s1 =  my_field )
                  cycle MATCH_LOOP
               endif
